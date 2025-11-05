@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GDELT Tone Observatory</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: "Inter", "Segoe UI", sans-serif;
+        margin: 0;
+        background: #f5f7fa;
+        color: #1f2933;
+      }
+      header {
+        background: linear-gradient(120deg, #1e3a8a, #0ea5e9);
+        color: white;
+        padding: 2.5rem 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.3);
+      }
+      main {
+        max-width: 1100px;
+        margin: -3rem auto 4rem;
+        padding: 0 1.5rem;
+      }
+      .card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.75rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+      }
+      h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        letter-spacing: 0.02em;
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 1.5rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+      }
+      table thead {
+        background: #0ea5e9;
+        color: white;
+      }
+      table th,
+      table td {
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: #0ea5e9;
+        color: white;
+        border: none;
+        border-radius: 999px;
+        padding: 0.6rem 1.4rem;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.2s ease-in-out, transform 0.1s ease-in-out;
+      }
+      .button:hover {
+        background: #0284c7;
+        transform: translateY(-1px);
+      }
+      .button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 999px;
+        font-size: 0.95rem;
+      }
+      .status-idle {
+        background: rgba(148, 163, 184, 0.25);
+        color: #334155;
+      }
+      .status-running {
+        background: rgba(14, 165, 233, 0.2);
+        color: #0f172a;
+      }
+      .status-completed {
+        background: rgba(34, 197, 94, 0.2);
+        color: #14532d;
+      }
+      .status-failed {
+        background: rgba(239, 68, 68, 0.2);
+        color: #7f1d1d;
+      }
+      ul.file-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 0.75rem;
+      }
+      ul.file-list li {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        border: 1px solid #e2e8f0;
+      }
+      ul.file-list li a {
+        font-weight: 600;
+        color: #1d4ed8;
+        text-decoration: none;
+      }
+      ul.file-list li a:hover {
+        text-decoration: underline;
+      }
+      code {
+        background: rgba(15, 23, 42, 0.05);
+        padding: 0.2rem 0.4rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+      }
+      pre {
+        background: rgba(15, 23, 42, 0.05);
+        padding: 1rem;
+        border-radius: 12px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .message {
+        background: rgba(14, 165, 233, 0.1);
+        border-left: 4px solid #0ea5e9;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+      }
+      @media (max-width: 640px) {
+        header {
+          padding: 2rem 1rem;
+        }
+        h1 {
+          font-size: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>GDELT Tone Observatory</h1>
+      <p>Orchestrate the full research workflow, inspect outputs, and browse the latest tone intelligence.</p>
+    </header>
+    <main>
+      <section class="card">
+        <h2>Pipeline control</h2>
+        {% if message %}
+        <div class="message">{{ message }}</div>
+        {% endif %}
+        <div class="status status-{{ state.status }}">
+          <strong>Status:</strong>
+          <span>{{ state.status|capitalize }}</span>
+        </div>
+        {% if state.error %}
+        <p style="color: #b91c1c; font-weight: 600; margin-top: 0.75rem;">Error: {{ state.error }}</p>
+        {% endif %}
+        <form method="post" action="/run" style="margin-top: 1.25rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+          <label style="display: inline-flex; gap: 0.5rem; align-items: center;">
+            <input type="checkbox" name="use_mock_data" value="1" />
+            Run with mock data
+          </label>
+          <button class="button" type="submit" {% if state.status == "running" %}disabled{% endif %}>
+            {% if state.status == "running" %}
+            Running…
+            {% else %}
+            Launch pipeline
+            {% endif %}
+          </button>
+        </form>
+        {% if state.last_run %}
+        <div style="margin-top: 1.25rem;">
+          <p style="margin: 0 0 0.5rem; font-weight: 600;">Last run snapshot</p>
+          <ul style="margin: 0; padding-left: 1.25rem;">
+            <li>Completed at: {{ state.last_run.completed_at }}</li>
+            <li>Mode: {{ "Mock" if state.last_run.use_mock else "Live" }} data</li>
+            <li>Raw rows: {{ state.last_run.raw_rows }}</li>
+            <li>Clean rows: {{ state.last_run.clean_rows }}</li>
+            {% if state.last_run.latest_year %}
+            <li>Latest year analyzed: {{ state.last_run.latest_year }}</li>
+            {% endif %}
+          </ul>
+          {% if state.last_run.qc_notes %}
+          <p style="margin: 0.75rem 0 0.25rem; font-weight: 600;">Quality control notes</p>
+          <ul style="margin: 0; padding-left: 1.25rem;">
+            {% for note in state.last_run.qc_notes %}
+            <li>{{ note }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% if state.last_run.tldr %}
+          <p style="margin: 0.75rem 0 0.25rem; font-weight: 600;">TL;DR</p>
+          <ul style="margin: 0; padding-left: 1.25rem;">
+            {% for line in state.last_run.tldr %}
+            <li>{{ line }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Annual metrics preview</h2>
+        {% if annual_metrics %}
+        <table>
+          <thead>
+            <tr>
+              {% for key in annual_metrics[0].keys() %}
+              <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in annual_metrics %}
+            <tr>
+              {% for value in row.values() %}
+              <td>{{ value }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p style="margin-top: 0.75rem;">Full CSV: <a href="/data/place_metrics_annual.csv" target="_blank">download</a></p>
+        {% else %}
+        <p>No annual metrics found yet. Run the pipeline to generate them.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>League table (latest year)</h2>
+        {% if league_table %}
+        <table>
+          <thead>
+            <tr>
+              {% for key in league_table[0].keys() %}
+              <th>{{ key }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in league_table %}
+            <tr>
+              {% for value in row.values() %}
+              <td>{{ value }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p style="margin-top: 0.75rem;">Full CSV: <a href="/data/league_table_latest.csv" target="_blank">download</a></p>
+        {% else %}
+        <p>No league table yet—kick off the pipeline to populate it.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Visuals</h2>
+        {% if figures %}
+        <ul class="file-list">
+          {% for fig in figures %}
+          <li>
+            <a href="{{ fig.url }}" target="_blank">{{ fig.name }}</a>
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.4rem;">
+              Updated: {{ fig.updated }}<br />
+              Size: {{ fig.size_bytes }} bytes
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>No figures available yet.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Reports</h2>
+        {% if reports %}
+        <ul class="file-list">
+          {% for report in reports %}
+          <li>
+            <a href="{{ report.url }}" target="_blank">{{ report.name }}</a>
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.4rem;">
+              Updated: {{ report.updated }}<br />
+              Size: {{ report.size_bytes }} bytes
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>Reports will appear here after the pipeline finishes.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Blogpost draft</h2>
+        {% if blogpost %}
+        <pre>{{ blogpost }}</pre>
+        {% else %}
+        <p>No blogpost yet. Run the pipeline to draft one automatically.</p>
+        {% endif %}
+      </section>
+    </main>
+    <script>
+      async function refreshStatus() {
+        try {
+          const response = await fetch("/api/status");
+          if (!response.ok) {
+            return;
+          }
+          const data = await response.json();
+          const statusBadge = document.querySelector(".status");
+          if (statusBadge) {
+            statusBadge.className = `status status-${data.status}`;
+            statusBadge.querySelector("span").textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+          }
+          const button = document.querySelector("button.button");
+          if (button) {
+            button.disabled = data.status === "running";
+            button.textContent = data.status === "running" ? "Running…" : "Launch pipeline";
+          }
+        } catch (error) {
+          console.error("Failed to refresh status", error);
+        }
+      }
+      setInterval(refreshStatus, 5000);
+    </script>
+  </body>
+</html>
