@@ -37,22 +37,6 @@ Outputs are written to:
 - `fig/`: annual trends and ECDF figures.
 - `report/`: `methods.md`, `blogpost.md`, and `findings.pdf`.
 
-## Interactive web experience
-
-Spin up a FastAPI-powered control room that can execute the pipeline, monitor progress, and surface the generated artifacts.
-
-```bash
-./run_webapp.sh
-# open http://localhost:8000
-```
-
-The interface provides:
-
-- One-click pipeline runs (mock or live data) with live status polling.
-- Preview tables for annual metrics and the latest league table.
-- Direct links to download figures and reports as they are produced.
-- Inline rendering of the auto-generated blogpost draft.
-
 ## Configuration
 
 - Adjust domain whitelists or the analysis window in `src/gdelt_pipeline/config.py`.

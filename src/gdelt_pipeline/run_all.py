@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
-from typing import Any, Dict
 
 from . import config
 from .analysis import compare_latest_vs_decade, identify_outliers, rank_with_cis
@@ -45,13 +44,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_pipeline(*, use_mock_data: bool = False, verbose: bool = False) -> Dict[str, Any]:
-    """Execute the full pipeline and return a high-level summary."""
-
-    _configure_logging(verbose)
+def main() -> None:
+    args = parse_args()
+    _configure_logging(args.verbose)
 
     LOGGER.info("Fetching raw data...")
-    raw_df = fetch_gdelt_data(use_mock=use_mock_data)
+    raw_df = fetch_gdelt_data(use_mock=args.use_mock_data)
     raw_df = assign_place_from_domain(raw_df)
     raw_path = OUTPUT_DIRS["data"] / "gdelt_raw.parquet"
     write_parquet(raw_df, raw_path)
@@ -67,29 +65,13 @@ def run_pipeline(*, use_mock_data: bool = False, verbose: bool = False) -> Dict[
     annual_metrics = compute_annual_metrics(clean_df)
     league_df = league_table_latest(annual_metrics)
 
-    if not monthly_metrics.empty:
-        write_csv(monthly_metrics, OUTPUT_DIRS["data"] / "place_metrics_monthly.csv")
-    if not annual_metrics.empty:
-        write_csv(annual_metrics, OUTPUT_DIRS["data"] / "place_metrics_annual.csv")
-    if not league_df.empty:
-        write_csv(league_df, OUTPUT_DIRS["data"] / "league_table_latest.csv")
-
     if annual_metrics.empty:
         LOGGER.warning("No annual metrics produced; exiting early.")
-        return {
-            "status": "no_data",
-            "raw_rows": len(raw_df),
-            "clean_rows": len(clean_df),
-            "latest_year": None,
-            "outputs": {
-                "raw": raw_path,
-                "monthly": None,
-                "annual": None,
-                "league": None,
-            },
-            "qc_notes": [],
-            "tldr": [],
-        }
+        return
+
+    write_csv(monthly_metrics, OUTPUT_DIRS["data"] / "place_metrics_monthly.csv")
+    write_csv(annual_metrics, OUTPUT_DIRS["data"] / "place_metrics_annual.csv")
+    write_csv(league_df, OUTPUT_DIRS["data"] / "league_table_latest.csv")
 
     LOGGER.info("Generating plots...")
     plot_annual_metric(annual_metrics, "mean", OUTPUT_DIRS["fig"] / "annual_mean_by_place.png", "Mean Tone")
@@ -158,29 +140,6 @@ def run_pipeline(*, use_mock_data: bool = False, verbose: bool = False) -> Dict[
 
     LOGGER.info("Pipeline completed. Outputs saved under data/, fig/, and report/ directories.")
 
-    return {
-        "status": "completed",
-        "raw_rows": len(raw_df),
-        "clean_rows": len(clean_df),
-        "latest_year": latest_year,
-        "outputs": {
-            "raw": raw_path,
-            "monthly": OUTPUT_DIRS["data"] / "place_metrics_monthly.csv",
-            "annual": OUTPUT_DIRS["data"] / "place_metrics_annual.csv",
-            "league": OUTPUT_DIRS["data"] / "league_table_latest.csv",
-            "methods": methods_path,
-            "blogpost": blogpost_path,
-            "findings": findings_path,
-        },
-        "qc_notes": qc_notes,
-        "tldr": tldr_lines,
-    }
-
-
-def main() -> None:
-    args = parse_args()
-    run_pipeline(use_mock_data=args.use_mock_data, verbose=args.verbose)
-
 
 def _place_name(slug: str) -> str:
     return next(spec.name for spec in config.PLACE_SPECS.values() if spec.slug == slug)
@@ -188,3 +147,4 @@ def _place_name(slug: str) -> str:
 
 if __name__ == "__main__":
     main()
+
